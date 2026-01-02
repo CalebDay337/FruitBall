@@ -3,130 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FruitBall Mobile</title>
+    <title>FruitBall: JUICED</title>
     <style>
-        body, html { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            position: fixed; overflow: hidden; background: #2c3e50; font-family: sans-serif;
-        }
-        #game-ui {
-            position: absolute; width: 100%; text-align: center;
-            color: white; font-size: 24px; font-weight: bold; top: 20px;
-            pointer-events: none;
-        }
-        canvas { 
-            display: block; background: #27ae60; /* Grass color */
-            width: 100vw; height: 100vh; touch-action: none;
-        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; position: fixed; overflow: hidden; background: #1a1a1a; font-family: 'Arial Black', sans-serif; }
+        #ui { position: absolute; width: 100%; top: 20px; color: white; text-align: center; pointer-events: none; text-shadow: 2px 2px #000; }
+        #combo { font-size: 40px; color: #f1c40f; display: none; animation: pop 0.3s ease; }
+        @keyframes pop { 0% { transform: scale(0.5); } 100% { transform: scale(1.2); } }
+        canvas { display: block; background: radial-gradient(circle, #27ae60, #1e8449); touch-action: none; }
     </style>
 </head>
 <body>
-
-    <div id="game-ui">SCORE: <span id="score">0</span></div>
-    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div style="font-size: 20px;">SCORE: <span id="score">0</span></div>
+        <div id="combo">COMBO x2!</div>
+    </div>
+    <canvas id="c"></canvas>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
+    const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
+    const comboEl = document.getElementById('combo');
 
-    // Game Variables
-    let score = 0;
-    let gameActive = true;
-    
-    // Set Canvas Size
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
+    let score = 0, combo = 0, shake = 0;
+    let particles = [];
+
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
     window.addEventListener('resize', resize);
     resize();
 
-    // Fruit (Ball) Object
-    const fruit = {
-        x: canvas.width / 2,
-        y: canvas.height / 2,
-        radius: 15,
-        dx: 4,
-        dy: -4,
-        emoji: "🍎"
-    };
+    const ball = { x: 200, y: 200, r: 20, dx: 5, dy: 5, e: "🍎" };
+    const paddle = { w: 120, h: 20, x: 0 };
 
-    // Paddle Object
-    const paddle = {
-        width: 100,
-        height: 15,
-        x: (canvas.width - 100) / 2,
-        color: "#f1c40f"
-    };
-
-    // Touch Control
     window.addEventListener('touchmove', (e) => {
-        const touchX = e.touches[0].clientX;
-        paddle.x = touchX - paddle.width / 2;
-        
-        // Keep paddle on screen
-        if(paddle.x < 0) paddle.x = 0;
-        if(paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
-        e.preventDefault();
+        paddle.x = e.touches[0].clientX - paddle.w/2;
     }, {passive: false});
 
-    function draw() {
-        if(!gameActive) return;
-
-        // Clear Screen
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Draw Paddle
-        ctx.fillStyle = paddle.color;
-        ctx.fillRect(paddle.x, canvas.height - 40, paddle.width, paddle.height);
-
-        // Draw Fruit
-        ctx.font = "30px serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(fruit.emoji, fruit.x, fruit.y);
-
-        // Fruit Movement
-        fruit.x += fruit.dx;
-        fruit.y += fruit.dy;
-
-        // Wall Bouncing (Left/Right)
-        if(fruit.x + fruit.radius > canvas.width || fruit.x - fruit.radius < 0) {
-            fruit.dx *= -1;
+    function createParticles(x, y) {
+        for(let i=0; i<8; i++) {
+            particles.push({x, y, dx: (Math.random()-0.5)*10, dy: (Math.random()-0.5)*10, life: 20});
         }
-
-        // Ceiling Bouncing
-        if(fruit.y - fruit.radius < 0) {
-            fruit.dy *= -1;
-        }
-
-        // Paddle Collision
-        if(fruit.y + fruit.radius > canvas.height - 40 && 
-           fruit.x > paddle.x && 
-           fruit.x < paddle.x + paddle.width) {
-            fruit.dy = -Math.abs(fruit.dy); // Force upward
-            fruit.dy *= 1.05; // Speed up slightly
-            fruit.dx *= 1.05;
-            score++;
-            scoreEl.innerText = score;
-            
-            // Change Fruit randomly on bounce
-            const fruits = ["🍎", "🍊", "🍋", "🍒", "🍉", "🍇"];
-            fruit.emoji = fruits[Math.floor(Math.random() * fruits.length)];
-        }
-
-        // Game Over
-        if(fruit.y + fruit.radius > canvas.height) {
-            alert("GAME OVER! Final Score: " + score);
-            document.location.reload();
-            gameActive = false;
-        }
-
-        requestAnimationFrame(draw);
     }
 
-    draw();
+    function update() {
+        ctx.save();
+        if(shake > 0) {
+            ctx.translate(Math.random()*shake - shake/2, Math.random()*shake - shake/2);
+            shake *= 0.9;
+        }
+
+        ctx.clearRect(-100, -100, canvas.width+200, canvas.height+200);
+
+        // Draw Paddle
+        ctx.fillStyle = "#fff";
+        ctx.shadowBlur = 20; ctx.shadowColor = "#fff";
+        ctx.fillRect(paddle.x, canvas.height - 60, paddle.w, paddle.h);
+        ctx.shadowBlur = 0;
+
+        // Draw Ball
+        ctx.font = "40px serif";
+        ctx.fillText(ball.e, ball.x - 20, ball.y + 15);
+
+        // Draw Particles
+        particles.forEach((p, i) => {
+            p.x += p.dx; p.y += p.dy; p.life--;
+            ctx.fillStyle = `rgba(255,255,255,${p.life/20})`;
+            ctx.fillRect(p.x, p.y, 5, 5);
+            if(p.life <= 0) particles.splice(i, 1);
+        });
+
+        ball.x += ball.dx; ball.y += ball.dy;
+
+        if(ball.x < 0 || ball.x > canvas.width) ball.dx *= -1;
+        if(ball.y < 0) ball.dy *= -1;
+
+        // Hit Paddle
+        if(ball.y > canvas.height - 80 && ball.x > paddle.x && ball.x < paddle.x + paddle.w) {
+            ball.dy = -Math.abs(ball.dy) * 1.05; 
+            ball.dx *= 1.02;
+            score += 10 + (combo * 5);
+            combo++;
+            shake = 15;
+            createParticles(ball.x, ball.y);
+            scoreEl.innerText = score;
+            const f = ["🍋","🍉","🍇","🍓","🫐"];
+            ball.e = f[Math.floor(Math.random()*f.length)];
+            
+            if(combo > 1) {
+                comboEl.style.display = "block";
+                comboEl.innerText = "COMBO x" + combo;
+            }
+        }
+
+        if(ball.y > canvas.height) {
+            combo = 0;
+            comboEl.style.display = "none";
+            ball.y = 200; ball.dy = 5; ball.dx = 5; // Reset ball
+        }
+
+        ctx.restore();
+        requestAnimationFrame(update);
+    }
+    update();
 </script>
 </body>
 </html>
